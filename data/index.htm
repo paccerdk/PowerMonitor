@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>WebSockets Streaming Smoothie Charts Demo</title>
+	<script type="text/javascript" src="smoothie.js"></script>
+	<script type="text/javascript">
+		window.onload = function() {
+			var log = document.getElementById("log");
+			var blip = document.getElementById("blip");
+			var timeSeries = new TimeSeries();
+			
+			function yRangeFunction(range) {
+				// TODO implement your calculation using range.min and range.max
+				var min = 0;
+				var max = (Math.ceil(timeSeries.maxValue/100)*100)+100;
+				return {min: min, max: max};
+			}
+			
+			timeFormatFunction = function(date) {
+				function pad2(number) { return (number < 10 ? '0' : '') + number }
+				
+				return pad2(date.getHours()) + ':' + pad2(date.getMinutes()) + ':' + pad2(date.getSeconds());
+			};
+			
+			var smoothieChart = new SmoothieChart({
+				millisPerPixel:100,
+				//minValue:0,
+				yRangeFunction:yRangeFunction,
+				timestampFormatter:timeFormatFunction,
+				grid:{ 
+					fillStyle:'#ffffff',
+					strokeStyle:'rgba(119,119,119,0.5)',
+					millisPerLine:10000,
+					verticalSections:4
+				},
+				labels:{
+					disabled:true,
+					fillStyle:'#000000',
+					fontSize:13,
+					precision:0
+				}
+			});
+			smoothieChart.addTimeSeries(timeSeries, {lineWidth:2,strokeStyle:'#ff0000'});
+			smoothieChart.streamTo(document.getElementById("mycanvas"), 2000);
+
+			if (window["WebSocket"]) {
+				var conn = new WebSocket("ws://"+window.location.host+":81");
+				//var conn = new WebSocket("ws://"+window.location.host+":81/blip");
+				//var logconn = new WebSocket("ws://"+window.location.host+":81/log");
+				
+				//logconn.onmessage = function(evt) {
+				//	log.innerHTML = evt.data;
+				//}
+				
+				conn.onmessage = function(evt) {
+					//log.innerHTML = evt.data;
+					blip.innerHTML = evt.data;
+					
+					timeSeries.append(new Date().getTime(), parseFloat(evt.data));
+					smoothieChart.options.grid.verticalSections = Math.ceil(timeSeries.maxValue/100)+1;
+				};
+
+				conn.onclose = function(evt) {
+					log.innerHTML = "Connection closed";
+				};
+			} else {
+				log.innerHTML = "Browser does not support WebSockets";
+			}
+		};
+	</script>
+</head>
+
+<body>
+	<div id="blip" style="font-family:Courier,monospace"></div>
+	<canvas id="mycanvas" width="800" height="400"></canvas>
+	<div id="log" style="font-family:Courier,monospace"></div>
+</body>
+
+</html>
